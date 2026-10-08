@@ -22,6 +22,7 @@ def run(file, repo, level):
     return {
         "sections": [asdict(s) for s in secs],
         "budget": agents.budget(path),
+        "info": agents.info(path),
         "dead_links": links.outbound(repo, file),
         "broken_inbound": links.inbound(repo, file),
     }
@@ -32,6 +33,7 @@ def format_text(r):
     for s in r["sections"]:
         out.append(f"{s['lines']:>6} {s['bytes']:>7}  {s['heading'] or '(preamble)'}")
     out.append("")
+    out += [f"[info] {i}" for i in r["info"]]
     out += [f"[budget] {w}" for w in r["budget"]]
     out += [f"[dead-link] line {d['line']}: {d['target']} ({d['reason']})" for d in r["dead_links"]]
     out += [f"[broken-inbound] {b['path']}:{b['line']}: #{b['anchor']}" for b in r["broken_inbound"]]

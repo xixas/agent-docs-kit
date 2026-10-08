@@ -1,7 +1,7 @@
 """Load/validate .docs-map.yaml and evaluate rules against a diff."""
 import re
 from dataclasses import dataclass, field
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 import yaml
 
