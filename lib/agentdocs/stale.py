@@ -20,6 +20,8 @@ class Token:
 
 
 def _plain(value):
+    if re.fullmatch(r"\d+(\.\d+)+", value):   # versions may be glued to a word: python3.13
+        return Token(value, r"(?<![\d.])" + re.escape(value) + r"(?!\w|\.\d)")
     return Token(value, r"(?<![\w.-])" + re.escape(value) + r"(?![\w-]|\.\d)")
 
 

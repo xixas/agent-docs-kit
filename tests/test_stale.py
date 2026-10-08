@@ -70,3 +70,9 @@ def test_doc_search_whole_token_and_exclude(repo):
     got = [(h.path, h.line, h.changed) for h in hits]
     assert got == [("README.md", 1, False), ("docs/a.md", 2, True)]
     assert hits[0].token == "3.13" and "Python 3.13" in hits[0].text
+
+
+def test_doc_search_finds_version_glued_to_a_word(repo):
+    repo.commit({"docs/a.md": "--runtime python3.13 --x\nimage python:3.13-slim\nx 13.13 y\n"})
+    hits = stale.find_in_docs(repo.path, [stale._plain("3.13")], ["docs/**/*.md"], [], {})
+    assert [h.line for h in hits] == [1, 2]
