@@ -7,15 +7,35 @@ from pathlib import Path
 _HUNK = re.compile(r"@@ -\S+ \+(\d+)")
 
 
+class GitError(Exception):
+    """Git problem the user must fix (CLI exit 2)."""
+
+
+EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
+
+def resolve_base(repo, base=None):
+    """Explicit base, else origin/HEAD's target, else main, else master; never HEAD."""
+    if base:
+        return base
+    r = _git(repo, "symbolic-ref", "--short", "refs/remotes/origin/HEAD", check=False)
+    if r.returncode == 0 and r.stdout.strip():
+        return r.stdout.strip()
+    for name in ("main", "master"):
+        if _git(repo, "rev-parse", "--verify", "-q", f"refs/heads/{name}", check=False).returncode == 0:
+            return name
+    raise GitError("cannot determine the base branch (no origin/HEAD, main or master); pass --base")
+
+
 def _git(repo, *args, check=True):
     r = subprocess.run(["git", *args], cwd=str(repo), capture_output=True,
                        text=True, check=False)
     if check and r.returncode != 0:
-        raise RuntimeError(f"git {' '.join(args)} failed: {r.stderr.strip()}")
+        raise GitError(f"git {' '.join(args)} failed: {r.stderr.strip()}")
     return r
 
 
-def changed_files(repo, commit=None, base="main"):
+def changed_files(repo, commit=None, base=None):
     """Return {path: status} with status in A/M/D."""
     left, right = _range(repo, commit, base)
     r = _git(repo, "diff", "--name-status", "--no-renames", "-z", *left, *right)
@@ -38,9 +58,11 @@ def _range(repo, commit, base):
     """Return (left_args, right_args) for `git diff`."""
     if commit:
         return [f"{commit}^"], [commit]
+    base = resolve_base(repo, base)
     mb = _git(repo, "merge-base", base, "HEAD", check=False)
-    rev = mb.stdout.strip() if mb.returncode == 0 and mb.stdout.strip() else "HEAD"
-    return [rev], []
+    if mb.returncode != 0 or not mb.stdout.strip():
+        raise GitError(f"no merge-base between {base} and HEAD: {mb.stderr.strip() or 'unrelated or missing ref'}")
+    return [mb.stdout.strip()], []
 
 
 class FileDiff:
@@ -49,7 +71,7 @@ class FileDiff:
         self.removed = []  # [text]
 
 
-def diff_lines(repo, commit=None, base="main"):
+def diff_lines(repo, commit=None, base=None):
     """Return {path: FileDiff} of added/removed lines (binary files skipped)."""
     left, right = _range(repo, commit, base)
     r = _git(repo, "diff", "-U0", "--no-renames", "--no-color", *left, *right)

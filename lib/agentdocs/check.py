@@ -8,9 +8,10 @@ LOCKFILES = ["*.lock", "**/*.lock", "package-lock.json", "pnpm-lock.yaml", "**/p
              "cdk.context.json", "graphify-out/**"]
 
 
-def run_check(repo, config_path=None, base="main", commit=None):
+def run_check(repo, config_path=None, base=None, commit=None):
     repo = Path(repo)
     cfg = docsmap.load_config(config_path or repo / ".docs-map.yaml", repo)
+    base = None if commit else gitdiff.resolve_base(repo, base)
     files = gitdiff.changed_files(repo, commit=commit, base=base)
     lines = gitdiff.diff_lines(repo, commit=commit, base=base)
     rules = docsmap.evaluate_rules(cfg, files, lines)
@@ -18,6 +19,7 @@ def run_check(repo, config_path=None, base="main", commit=None):
     tokens, elsewhere, comments = stale.code_usage(repo, tokens, cfg.docs, cfg.exclude)
     hits = stale.find_in_docs(repo, tokens, cfg.docs, cfg.exclude, files)
     return {
+        "base": base,
         "rules": [{"id": c.rule_id, "evidence": c.evidence, "targets": c.targets,
                    "run": c.run, "note": c.note} for c in rules],
         "stale": [vars(h) for h in hits],
@@ -27,7 +29,7 @@ def run_check(repo, config_path=None, base="main", commit=None):
 
 
 def format_text(result):
-    out = []
+    out = [f"base: {result['base']}"] if result.get("base") else []
     for r in result["rules"]:
         out.append(f"[rule] {r['id']}")
         for e in r["evidence"]:
@@ -47,4 +49,6 @@ def format_text(result):
         out.append("-- value still used elsewhere in code (may also be stale) --")
         for e in result["elsewhere"]:
             out.append(f"[code] {e['token']}  {e['path']}:{e['line']}  {e['text']}")
-    return "\n".join(out) if out else "docs-check: no candidates"
+    if len(out) <= 1:
+        out.append("docs-check: no candidates")
+    return "\n".join(out)

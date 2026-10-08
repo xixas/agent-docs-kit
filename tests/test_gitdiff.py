@@ -39,3 +39,29 @@ def test_diff_lines_includes_untracked(repo):
     repo.commit({"a.txt": "x\n"})
     repo.write("u.txt", "hello\n")
     assert gitdiff.diff_lines(repo.path)["u.txt"].added == [(1, "hello")]
+
+
+def test_resolve_base_order(repo):
+    import pytest
+    repo.commit({"a": "1\n"})
+    assert gitdiff.resolve_base(repo.path) == "main"
+    assert gitdiff.resolve_base(repo.path, "feat") == "feat"
+    repo.git("branch", "-m", "main", "master")
+    assert gitdiff.resolve_base(repo.path) == "master"
+    repo.git("branch", "-m", "master", "trunk")
+    with pytest.raises(gitdiff.GitError, match="--base"):
+        gitdiff.resolve_base(repo.path)
+
+
+def test_resolve_base_prefers_origin_head(repo):
+    repo.commit({"a": "1\n"})
+    repo.git("update-ref", "refs/remotes/origin/develop", "HEAD")
+    repo.git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/develop")
+    assert gitdiff.resolve_base(repo.path) == "origin/develop"
+
+
+def test_no_silent_head_fallback(repo):
+    import pytest
+    repo.commit({"a": "1\n"})
+    with pytest.raises(gitdiff.GitError):
+        gitdiff.changed_files(repo.path, base="nonexistent")

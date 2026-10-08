@@ -63,4 +63,13 @@ def test_exit_2_on_missing_config(repo):
 def test_exit_0_when_nothing_to_report(repo):
     repo.commit({"a.txt": "1\n", ".docs-map.yaml": "docs: []\n"})
     p = cli(repo, "--json")
-    assert p.returncode == 0 and json.loads(p.stdout) == {"rules": [], "stale": [], "stale_comments": [], "elsewhere": []}
+    assert p.returncode == 0 and json.loads(p.stdout) == {"base": "main", "rules": [], "stale": [], "stale_comments": [], "elsewhere": []}
+
+
+def test_base_reported_text_and_json_and_errors_when_unresolvable(repo):
+    repo.commit({"a.txt": "1\n", ".docs-map.yaml": "docs: []\n"})
+    assert "base: main" in cli(repo).stdout
+    assert json.loads(cli(repo, "--json", "--base", "main").stdout)["base"] == "main"
+    repo.git("branch", "-m", "main", "trunk")
+    p = cli(repo)
+    assert p.returncode == 2 and "--base" in p.stderr and "Traceback" not in p.stderr
