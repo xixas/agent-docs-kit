@@ -26,3 +26,9 @@ def test_failures_exit_1_json(repo):
     d = json.loads(r.stdout)
     assert d["budget"] and d["dead_links"] and d["broken_inbound"]
     assert d["sections"][0]["heading"] == "A"
+
+
+def test_missing_file_exits_2_cleanly(repo):
+    repo.commit({"a": "1"})
+    r = cli(repo, "NOPE.md")
+    assert r.returncode == 2 and "Traceback" not in r.stderr and "NOPE.md" in r.stderr

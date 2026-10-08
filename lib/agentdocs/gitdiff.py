@@ -14,8 +14,15 @@ class GitError(Exception):
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
 
+def require_git(repo):
+    r = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=str(repo), capture_output=True, text=True)
+    if r.returncode != 0:
+        raise GitError(f"not a git repository: {repo}")
+
+
 def resolve_base(repo, base=None):
     """Explicit base, else origin/HEAD's target, else main, else master; never HEAD."""
+    require_git(repo)
     if base:
         return base
     r = _git(repo, "symbolic-ref", "--short", "refs/remotes/origin/HEAD", check=False)
@@ -57,7 +64,9 @@ def untracked(repo):
 def _range(repo, commit, base):
     """Return (left_args, right_args) for `git diff`."""
     if commit:
-        return [f"{commit}^"], [commit]
+        require_git(repo)
+        has_parent = _git(repo, "rev-parse", "--verify", "-q", f"{commit}^", check=False).returncode == 0
+        return [f"{commit}^" if has_parent else EMPTY_TREE], [commit]
     base = resolve_base(repo, base)
     mb = _git(repo, "merge-base", base, "HEAD", check=False)
     if mb.returncode != 0 or not mb.stdout.strip():

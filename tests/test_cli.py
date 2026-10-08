@@ -73,3 +73,15 @@ def test_base_reported_text_and_json_and_errors_when_unresolvable(repo):
     repo.git("branch", "-m", "main", "trunk")
     p = cli(repo)
     assert p.returncode == 2 and "--base" in p.stderr and "Traceback" not in p.stderr
+
+
+def test_non_git_dir_exits_2_cleanly(tmp_path):
+    (tmp_path / ".docs-map.yaml").write_text("docs: []\n")
+    p = subprocess.run([sys.executable, str(CLI), "--repo", str(tmp_path)], capture_output=True, text=True)
+    assert p.returncode == 2 and "Traceback" not in p.stderr and "git" in p.stderr
+
+
+def test_root_commit_diffs_against_empty_tree(repo):
+    sha = repo.commit({"README.md": "x\n", ".docs-map.yaml": "docs: []\n"})
+    p = cli(repo, "--commit", sha, "--json")
+    assert p.returncode == 0, p.stderr

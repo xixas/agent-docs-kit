@@ -13,6 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "lib"))
 
 from agentdocs import agents, links, mdsections  # noqa: E402
+from agentdocs.gitdiff import GitError  # noqa: E402
 
 
 def run(file, repo, level):
@@ -46,7 +47,11 @@ def main(argv=None):
     ap.add_argument("--level", type=int, default=2)
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
-    r = run(a.file, a.repo, a.level)
+    try:
+        r = run(a.file, a.repo, a.level)
+    except (OSError, GitError) as e:
+        print(f"slim-check: {e}", file=sys.stderr)
+        return 2
     print(json.dumps(r, indent=2) if a.json else format_text(r))
     return 1 if (r["budget"] or r["dead_links"] or r["broken_inbound"]) else 0
 
