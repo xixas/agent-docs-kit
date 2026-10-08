@@ -83,7 +83,7 @@ def test_same_kind_filter_keeps_token_used_only_in_other_kind(repo):
                  "docs/a.md": "python3.13\n"})
     d = {"stacks/a.py": fd(removed=["R = '3.13'"], added=["R = '3.14'"])}
     toks = stale.stale_tokens(d)
-    kept, elsewhere = stale.code_usage(repo.path, toks, ["docs/**/*.md"], [])
+    kept, elsewhere, _ = stale.code_usage(repo.path, toks, ["docs/**/*.md"], [])
     assert [t.label for t in kept] == ["3.13"]
     assert [(e["path"], e["line"]) for e in elsewhere] == [(".github/ci.yml", 1)]
 
@@ -91,5 +91,31 @@ def test_same_kind_filter_keeps_token_used_only_in_other_kind(repo):
 def test_same_kind_filter_drops_token_still_in_other_py(repo):
     repo.commit({"a.py": "x = 1\n", "b.py": "from x import DB_ERROR\n"})
     d = {"a.py": fd(removed=["use DB_ERROR here"])}
-    kept, elsewhere = stale.code_usage(repo.path, stale.stale_tokens(d), [], [])
+    kept, elsewhere, _ = stale.code_usage(repo.path, stale.stale_tokens(d), [], [])
     assert kept == [] and elsewhere == []
+
+
+def _usage(repo, files):
+    repo.commit(files)
+    d = {"a.py": fd(removed=["R = '3.13'"])}
+    return stale.code_usage(repo.path, stale.stale_tokens(d), [], [])
+
+
+def test_remaining_only_in_docstring_is_kept_and_flagged(repo):
+    kept, _, comments = _usage(repo, {
+        "a.py": "R = 1\n",
+        "b.py": 'class C:\n    """Runs on Python 3.13.\n\n    more\n    """\n    x = 1\n',
+        "m.py": '"""Module for 3.13"""\n\ndef f():\n    \'\'\'3.13 doc\'\'\'\n'})
+    assert [t.label for t in kept] == ["3.13"]
+    assert sorted((c["path"], c["line"]) for c in comments) == [("b.py", 2), ("m.py", 1), ("m.py", 4)]
+
+
+def test_remaining_only_in_comment_is_kept_and_flagged(repo):
+    kept, _, comments = _usage(repo, {"b.py": "x = 1  # built for 3.13\n# 3.13 too\n"})
+    assert [t.label for t in kept] == ["3.13"]
+    assert [(c["path"], c["line"]) for c in comments] == [("b.py", 1), ("b.py", 2)]
+
+
+def test_remaining_in_real_code_is_dropped(repo):
+    kept, _, comments = _usage(repo, {"b.py": "V = '3.13'\ns = \"\"\"3.13\"\"\"\n"})
+    assert kept == [] and comments == []

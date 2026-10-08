@@ -15,12 +15,13 @@ def run_check(repo, config_path=None, base="main", commit=None):
     lines = gitdiff.diff_lines(repo, commit=commit, base=base)
     rules = docsmap.evaluate_rules(cfg, files, lines)
     tokens = stale.stale_tokens(lines, ignore=LOCKFILES)
-    tokens, elsewhere = stale.code_usage(repo, tokens, cfg.docs, cfg.exclude)
+    tokens, elsewhere, comments = stale.code_usage(repo, tokens, cfg.docs, cfg.exclude)
     hits = stale.find_in_docs(repo, tokens, cfg.docs, cfg.exclude, files)
     return {
         "rules": [{"id": c.rule_id, "evidence": c.evidence, "targets": c.targets,
                    "run": c.run, "note": c.note} for c in rules],
         "stale": [vars(h) for h in hits],
+        "stale_comments": comments,
         "elsewhere": elsewhere if hits else [],
     }
 
@@ -40,6 +41,8 @@ def format_text(result):
     for h in result["stale"]:
         tag = " (changed in this diff)" if h["changed"] else ""
         out.append(f"[stale] {h['token']}  {h['path']}:{h['line']}{tag}  {h['text']}")
+    for c in result.get("stale_comments", []):
+        out.append(f"[stale-comment] {c['token']}  {c['path']}:{c['line']}  {c['text']}")
     if result.get("elsewhere"):
         out.append("-- value still used elsewhere in code (may also be stale) --")
         for e in result["elsewhere"]:

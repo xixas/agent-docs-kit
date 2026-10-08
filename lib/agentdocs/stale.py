@@ -1,6 +1,10 @@
 """Stale-value pass: tokens removed by a diff that docs may still mention."""
+import ast
+import io
 import re
 import subprocess
+import tokenize
+from pathlib import Path
 from dataclasses import dataclass, replace
 from pathlib import PurePosixPath
 
@@ -78,29 +82,73 @@ def _grep(repo, needle, excludes):
     return r.stdout.splitlines()  # exit 1 == no matches
 
 
+COMMENT_PREFIXES = ("#", "//", "/*", "*", "<!--", "--")
+_py_cache = {}
+
+
+def _py_comment_info(repo, path):
+    """(docstring_lines, {line: comment_start_col}) for a .py file, or None if unparsable."""
+    key = (str(repo), path)
+    if key not in _py_cache:
+        try:
+            src = (Path(repo) / path).read_text()
+            tree = ast.parse(src)
+            doc = set()
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+                    b = node.body[0] if node.body else None
+                    if (isinstance(b, ast.Expr) and isinstance(b.value, ast.Constant)
+                            and isinstance(b.value.value, str)):
+                        doc.update(range(b.lineno, b.end_lineno + 1))
+            cols = {t.start[0]: t.start[1]
+                    for t in tokenize.generate_tokens(io.StringIO(src).readline)
+                    if t.type == tokenize.COMMENT}
+            _py_cache[key] = (doc, cols)
+        except (SyntaxError, tokenize.TokenError, UnicodeDecodeError, OSError):
+            _py_cache[key] = None
+    return _py_cache[key]
+
+
+def is_comment_occurrence(repo, path, lineno, text, match_col):
+    if kind_of(path) == ".py":
+        info = _py_comment_info(repo, path)
+        if info is not None:
+            doc, cols = info
+            return lineno in doc or (lineno in cols and match_col >= cols[lineno])
+    return text.lstrip().startswith(COMMENT_PREFIXES)
+
+
 def code_usage(repo, tokens, docs, exclude):
     """Split tokens by whether non-doc code still uses them.
 
-    Returns (kept, elsewhere). A token is dropped only if a file of the same
-    kind (extension) it was removed from still contains it. Occurrences in
-    other kinds of files are returned in `elsewhere` for kept tokens."""
+    Returns (kept, elsewhere, comments). A token is dropped only if a file of
+    the same kind (extension) it was removed from still contains it in real
+    code. Occurrences in comments/docstrings never count as use; they come
+    back in `comments` (stale for the same reason). Occurrences in other
+    kinds of files come back in `elsewhere`. Both lists cover kept tokens only."""
     excludes = list(docs) + list(exclude)
-    kept, elsewhere = [], []
+    kept, elsewhere, comments = [], [], []
     for t in tokens:
         rx = re.compile(t.regex)
-        other, same = [], False
+        other, cmts, same = [], [], False
         for line in _grep(repo, t.label, excludes):
             path, no, rest = line.split(":", 2)
-            if not rx.search(rest):
+            m = rx.search(rest)
+            if not m:
                 continue
-            if not t.kinds or kind_of(path) in t.kinds:
+            row = {"token": t.label, "path": path, "line": int(no), "text": rest.strip()[:200]}
+            if is_comment_occurrence(repo, path, int(no), rest, m.start()):
+                cmts.append(row)
+            elif not t.kinds or kind_of(path) in t.kinds:
                 same = True
                 break
-            other.append({"token": t.label, "path": path, "line": int(no), "text": rest.strip()[:200]})
+            else:
+                other.append(row)
         if not same:
             kept.append(t)
             elsewhere += other
-    return kept, elsewhere
+            comments += cmts
+    return kept, elsewhere, comments
 
 
 def drop_tokens_in_code(repo, tokens, docs, exclude):
@@ -125,7 +173,6 @@ def doc_files(repo, docs, exclude):
 
 
 def find_in_docs(repo, tokens, docs, exclude, changed):
-    from pathlib import Path
     compiled = [(t, re.compile(t.regex)) for t in tokens]
     hits = []
     for path in doc_files(repo, docs, exclude):
