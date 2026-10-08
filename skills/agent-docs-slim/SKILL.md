@@ -30,7 +30,7 @@ Codex reads only the first 32 KiB of `AGENTS.md`, and Claude's target is ≤200 
    For each row, spot-check one or two concrete claims against the code (counts, names, paths) and record what is stale. Also grep the repo for inbound references to the file and its anchors (skills, README, hooks, scripts), since those break if you move their target. Done when every section has a row.
 3. **Freeze the eval before editing.** Hand the RULE and ENFORCED rows to a separate subagent. It writes `prompts.yaml` for `agent-ab-eval`: one task prompt per rule, phrased as real work ("write a script that backfills X in staging"), never as a quiz, with a regex showing the rule was applied. Save the file outside the edit. It stays frozen from here on.
 4. **Approval.** Show the table plus the target line count. Wait for the user's go before step 5.
-5. **Apply** on a branch or in a git worktree: keep rules, write pointers, delete caches, move reference, fix every stale claim, and repair every inbound reference.
+5. **Apply** on a branch or in a git worktree: keep rules, write pointers, delete caches, move reference, fix every stale claim, and repair every inbound reference. Build each approved new enforcement too: a hook (a hookify rule file if the repo uses hookify, otherwise a `hooks` entry in `.claude/settings.json`), a skill for any multi-step procedure, or a `.docs-map.yaml` rule (set up with `docs-check`). Delete the text it replaces only once it exists.
 6. **Verify.**
    - `slim_check.py` exits 0.
    - Every RULE row's content is still in the root file.
