@@ -76,3 +76,20 @@ def test_doc_search_finds_version_glued_to_a_word(repo):
     repo.commit({"docs/a.md": "--runtime python3.13 --x\nimage python:3.13-slim\nx 13.13 y\n"})
     hits = stale.find_in_docs(repo.path, [stale._plain("3.13")], ["docs/**/*.md"], [], {})
     assert [h.line for h in hits] == [1, 2]
+
+
+def test_same_kind_filter_keeps_token_used_only_in_other_kind(repo):
+    repo.commit({"stacks/a.py": "R = '3.14'\n", ".github/ci.yml": "python-version: '3.13'\n",
+                 "docs/a.md": "python3.13\n"})
+    d = {"stacks/a.py": fd(removed=["R = '3.13'"], added=["R = '3.14'"])}
+    toks = stale.stale_tokens(d)
+    kept, elsewhere = stale.code_usage(repo.path, toks, ["docs/**/*.md"], [])
+    assert [t.label for t in kept] == ["3.13"]
+    assert [(e["path"], e["line"]) for e in elsewhere] == [(".github/ci.yml", 1)]
+
+
+def test_same_kind_filter_drops_token_still_in_other_py(repo):
+    repo.commit({"a.py": "x = 1\n", "b.py": "from x import DB_ERROR\n"})
+    d = {"a.py": fd(removed=["use DB_ERROR here"])}
+    kept, elsewhere = stale.code_usage(repo.path, stale.stale_tokens(d), [], [])
+    assert kept == [] and elsewhere == []

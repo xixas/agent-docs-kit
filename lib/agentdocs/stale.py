@@ -1,7 +1,8 @@
 """Stale-value pass: tokens removed by a diff that docs may still mention."""
 import re
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from pathlib import PurePosixPath
 
 from .docsmap import any_glob
 
@@ -17,6 +18,12 @@ HOST = re.compile(r"(?<![\w.-])[a-z0-9-]+(?:\.[a-z0-9-]+)+\.(?:com|net|io|org|ap
 class Token:
     label: str    # human-readable, also the key
     regex: str    # pattern used to search docs and code
+    kinds: frozenset = frozenset()  # file extensions it was removed from; empty = any
+
+
+def kind_of(path):
+    ext = PurePosixPath(path).suffix.lower()
+    return ".yml" if ext == ".yaml" else ext
 
 
 def _plain(value):
@@ -47,16 +54,20 @@ def extract_tokens(text):
 
 
 def stale_tokens(lines, ignore=()):
-    """Tokens in removed lines and in no added line, across the whole diff."""
-    removed, added = set(), set()
+    """Tokens in removed lines and in no added line, across the whole diff.
+
+    Each token records the file kinds (extensions) it was removed from."""
+    removed, added = {}, set()
     for path, fd in lines.items():
         if ignore and any_glob(path, list(ignore)):
             continue
         for t in fd.removed:
-            removed |= extract_tokens(t)
+            for tok in extract_tokens(t):
+                removed.setdefault(tok, set()).add(kind_of(path))
         for _, t in fd.added:
             added |= extract_tokens(t)
-    return sorted(removed - added, key=lambda t: t.label)
+    return sorted((replace(t, kinds=frozenset(k)) for t, k in removed.items() if t not in added),
+                  key=lambda t: t.label)
 
 
 def _grep(repo, needle, excludes):
@@ -67,21 +78,33 @@ def _grep(repo, needle, excludes):
     return r.stdout.splitlines()  # exit 1 == no matches
 
 
-def drop_tokens_in_code(repo, tokens, docs, exclude):
-    """Drop tokens that a non-doc tracked file still contains."""
+def code_usage(repo, tokens, docs, exclude):
+    """Split tokens by whether non-doc code still uses them.
+
+    Returns (kept, elsewhere). A token is dropped only if a file of the same
+    kind (extension) it was removed from still contains it. Occurrences in
+    other kinds of files are returned in `elsewhere` for kept tokens."""
     excludes = list(docs) + list(exclude)
-    kept = []
+    kept, elsewhere = [], []
     for t in tokens:
         rx = re.compile(t.regex)
-        still_used = False
+        other, same = [], False
         for line in _grep(repo, t.label, excludes):
-            _, _, rest = line.split(":", 2)   # path:lineno:text
-            if rx.search(rest):
-                still_used = True
+            path, no, rest = line.split(":", 2)
+            if not rx.search(rest):
+                continue
+            if not t.kinds or kind_of(path) in t.kinds:
+                same = True
                 break
-        if not still_used:
+            other.append({"token": t.label, "path": path, "line": int(no), "text": rest.strip()[:200]})
+        if not same:
             kept.append(t)
-    return kept
+            elsewhere += other
+    return kept, elsewhere
+
+
+def drop_tokens_in_code(repo, tokens, docs, exclude):
+    return code_usage(repo, tokens, docs, exclude)[0]
 
 
 @dataclass

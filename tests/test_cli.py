@@ -63,4 +63,4 @@ def test_exit_2_on_missing_config(repo):
 def test_exit_0_when_nothing_to_report(repo):
     repo.commit({"a.txt": "1\n", ".docs-map.yaml": "docs: []\n"})
     p = cli(repo, "--json")
-    assert p.returncode == 0 and json.loads(p.stdout) == {"rules": [], "stale": []}
+    assert p.returncode == 0 and json.loads(p.stdout) == {"rules": [], "stale": [], "elsewhere": []}
