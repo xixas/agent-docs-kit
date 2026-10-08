@@ -137,3 +137,7 @@ def main(argv=None, runner=subprocess_runner):
         print(f"{r['rule']} | A {r['A']}/{args.runs} | B {r['B']}/{args.runs} | {r['verdict']}")
         failed = failed or r["verdict"] == "FAIL"
     return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
