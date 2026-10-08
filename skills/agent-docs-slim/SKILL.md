@@ -20,7 +20,7 @@ Codex reads only the first 32 KiB of `AGENTS.md`, and Claude's target is ≤200 
 
 ## Steps
 
-1. **Measure.** Run `python3 <this-skill-dir>/slim_check.py <file> --repo <repo>`. It reports sections by size, budget warnings, dead links and broken inbound anchors.
+1. **Measure.** Run `python3 <this-skill-dir>/slim_check.py <file> --repo <repo>`. It reports sections by size, dead links and broken inbound anchors, plus budget warnings on the *effective* file, with `@imports` expanded (lines for CLAUDE.md, bytes for CLAUDE.md and AGENTS.md). Exit 2 means the file is missing.
 2. **Sort every section** into one row: `Section | Kind | Destination | Stale claims`.
    - **RULE**: changes what the agent does (a gotcha, a must-do, a never-do that has no positive phrasing). It stays.
    - **POINTER**: names a doc. It stays, as one line led by its trigger words: `Auth flows, Cognito domains → docs/auth.md`.

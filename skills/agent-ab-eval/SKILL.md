@@ -19,10 +19,10 @@ Proves an instruction change kept its behaviour. Each run is a real headless age
          - rule: shared-neptune
            any: ["shared", "production (too|as well)", "visible in prod"]
    ```
-   Use one task prompt per rule, phrased as real work. A check passes when any of its regexes matches the final answer. The harness adds the plan-only prefix itself, so the agent describes what it would do and edits nothing.
+   Use one task prompt per rule, phrased as real work. A check passes when any of its regexes matches the final answer. The harness adds a plan-only prefix, and every run is read-only by construction: plan mode, Read/Grep/Glob only, with Bash, Edit, Write, web and MCP tools disallowed. A repo's own allow-rules cannot open them back up. Prompts are therefore scored on what the agent *says* it would do.
 3. **Dry run.** Run `python3 <this-skill-dir>/run_eval.py --prompts P --a A --b B --dry-run` and confirm the run count (prompts × runs × 2).
 4. **Measure one.** Run `--measure-one` and show the user the cost of one run and the estimate for the batch. Continue only on their OK.
-5. **Full run.** The defaults are `--runs 3 --max-turns 4 --model sonnet`. Add `--agent codex` to test the `AGENTS.md` side. The run exits 1 when any rule scores more than one run lower on B than on A.
+5. **Full run.** The defaults are `--runs 3 --max-turns 4 --model sonnet`. Each run is appended to `--out` (JSONL) as it finishes. A run that errors or hits the turn limit counts as a miss and is shown in the `failed` column. After an interruption, rerun with `--resume`. The run exits 1 when any rule scores more than one run lower on B than on A. `--agent codex` (with `--sandbox read-only`) is untested: say so if you use it.
 6. **Report** the table `rule | A | B | verdict`. For each FAIL, quote what B said instead, and name the content whose move likely caused it.
 
 Three runs per cell catch a rule that broke, not a subtle drift. Say so in the report rather than claiming more.

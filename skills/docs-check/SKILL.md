@@ -1,6 +1,6 @@
 ---
 name: docs-check
-description: Find docs a code change made stale before it ships: run on a branch or commit, judge each candidate doc, update or dismiss it. Use before pushing or opening a PR, when asked "did I miss any docs", or to set up a repo's .docs-map.yaml.
+description: Find docs a code change made stale: run on a branch or commit, judge each candidate doc, update or dismiss it. Use before pushing in a repo that has a .docs-map.yaml, when asked "did I miss any docs", or when asked to set up a .docs-map.yaml.
 ---
 
 # docs-check
@@ -9,12 +9,12 @@ A script turns the git diff into **candidates**, docs that may now say something
 
 ## Steps
 
-1. **Config.** Read `<repo>/.docs-map.yaml`. If it is missing, go to *Setting up a repo* below, then come back.
+1. **Config.** Read `<repo>/.docs-map.yaml`. If it is missing, say so in one line and stop. Setting one up is its own task, done only when the user asks (see *Setting up a repo*).
 2. **Run** the `check_docs_map.py` that sits next to this file:
    ```
    python3 <this-skill-dir>/check_docs_map.py --repo <repo> [--base main | --commit SHA] [--json]
    ```
-   The default compares the merge-base with `main` to the working tree, including uncommitted and untracked files. Exit 2 means the config is broken or a rule names a target that doesn't exist. Fix the config before going further.
+   It diffs the merge-base with the default branch against the working tree, including uncommitted and untracked files. The default branch is taken from `origin/HEAD`, then `main`, then `master`, and the first output line names it. If it is wrong, pass `--base`. Exit 2 means the config is broken, a rule names a missing target, or no base branch was found. Report the message and stop.
 3. **Judge every candidate.** Open the doc at the cited line and check it against the change:
    - `[rule]`: the change touched something this doc describes. Update the doc only if what it says is now untrue. If the rule prints `run:`, execute that command; generated docs are regenerated, never edited by hand.
    - `[stale]` / `[stale-comment]`: the diff removed this value, and a doc (or a code comment or docstring) still names it. Usually stale. A value written as a minimum ("3.11+") or as history is still true.
