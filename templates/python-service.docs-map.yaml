@@ -1,0 +1,24 @@
+# Generic docs-map for a Python service. Copy to <repo>/.docs-map.yaml and adjust the
+# globs and `update` targets (every target must exist in the repo).
+docs: ["README.md", "docs/**/*.md", "CLAUDE.md", "AGENTS.md"]
+exclude: ["docs/generated/**"]
+
+rules:
+  - id: python-runtime
+    when:
+      paths: ["requirements*.txt", "pyproject.toml", ".python-version", "Dockerfile"]
+      diff_regex: "(?i)python[ _=<>~-]*3\\.\\d+|requires-python|python_version"
+    update: ["README.md"]
+    note: "python version changed: update install/setup docs and any CI/runtime mentions"
+
+  - id: new-script
+    when:
+      added: ["scripts/*.py", "scripts/*.sh", "bin/*"]
+    update: ["README.md"]
+    note: "document the new script (what it does, how to run it)"
+
+  - id: env-vars
+    when:
+      paths: [".env.example"]
+    update: ["README.md"]
+    note: ".env.example changed: document new, renamed or removed environment variables"

@@ -100,3 +100,19 @@ def test_glob_match_semantics_without_full_match():
     assert g("a.lock", "*.lock") and not g("d/a.lock", "*.lock") and g("d/a.lock", "**/*.lock")
     assert g("graphify-out/x/y", "graphify-out/**") and g("a+b.md", "a+b.md") and not g("aXb.md", "a.b.md")
     assert g("requirements-dev.txt", "requirements*.txt")
+
+
+def test_every_template_loads(tmp_path):
+    from pathlib import Path
+    import yaml
+    tdir = Path(__file__).resolve().parent.parent / "templates"
+    templates = sorted(tdir.glob("*.docs-map.yaml"))
+    assert templates
+    for t in templates:
+        for rule in yaml.safe_load(t.read_text()).get("rules", []):
+            for target in rule.get("update", []):
+                f = tmp_path / target
+                f.parent.mkdir(parents=True, exist_ok=True)
+                f.write_text("x\n")
+        cfg = docsmap.load_config(t, tmp_path)
+        assert cfg.rules, t.name
