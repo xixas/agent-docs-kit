@@ -90,3 +90,13 @@ def test_diff_regex_trigger():
     # no paths -> all files considered; removed lines count
     fd3 = FileDiff(); fd3.removed = ["HttpRoute(x)"]
     assert run(mk(diff_regex="HttpRoute"), {"z.py": "M"}, {"z.py": fd3})
+
+
+def test_glob_match_semantics_without_full_match():
+    g = docsmap.glob_match
+    assert g("docs/a/b/c.md", "docs/**/*.md") and g("docs/c.md", "docs/**/*.md")
+    assert not g("docs/a/b.md", "docs/*.md")
+    assert g("x/a.py", "x/?.py") and not g("x/ab.py", "x/?.py") and not g("x//.py", "x/?.py")
+    assert g("a.lock", "*.lock") and not g("d/a.lock", "*.lock") and g("d/a.lock", "**/*.lock")
+    assert g("graphify-out/x/y", "graphify-out/**") and g("a+b.md", "a+b.md") and not g("aXb.md", "a.b.md")
+    assert g("requirements-dev.txt", "requirements*.txt")
