@@ -17,7 +17,8 @@ A script turns the git diff into **candidates**, docs that may now say something
    The default compares the merge-base with `main` to the working tree, including uncommitted and untracked files. Exit 2 means the config is broken or a rule names a target that doesn't exist. Fix the config before going further.
 3. **Judge every candidate.** Open the doc at the cited line and check it against the change:
    - `[rule]`: the change touched something this doc describes. Update the doc only if what it says is now untrue. If the rule prints `run:`, execute that command; generated docs are regenerated, never edited by hand.
-   - `[stale]`: the diff removed this value, and the doc still names it. Usually stale. Under "still used elsewhere", other code may also need the new value: report it, but leave it alone unless it is inside the change you are making.
+   - `[stale]` / `[stale-comment]`: the diff removed this value, and a doc (or a code comment or docstring) still names it. Usually stale. A value written as a minimum ("3.11+") or as history is still true.
+   - `[code]`, listed under "still used elsewhere": other code may also need the new value. Report it, but leave it alone unless it is inside the change you are making.
 4. **Done** when every candidate has exactly one outcome: *updated* (with the file you changed) or *dismissed* (with a one-line reason, e.g. "says 3.11+ as a minimum, still true"). Report them as a table: `Candidate | Outcome | Reason`.
 
 ## Setting up a repo
