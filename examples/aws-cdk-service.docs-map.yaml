@@ -1,0 +1,56 @@
+# A fuller docs-map for an AWS CDK (Python) service with Lambdas, generated API docs and agent
+# instruction files. Copy to <repo>/.docs-map.yaml and adjust; every `update` target must exist.
+docs: ["README.md", "docs/**/*.md", "lambda/**/*.md", "AGENTS.md", "CLAUDE.md"]
+exclude: ["docs/openapi/**", "docs/postman/**"]   # generated: regenerate, never hand-edit
+
+rules:
+  - id: resource-names
+    when:
+      paths: ["src/config/resource_names.py"]
+    update: ["docs/RESOURCES.md"]
+    run: "python scripts/generate-resources-doc.py"
+
+  - id: api-routes
+    when:
+      paths: ["stacks/*.py"]
+      diff_regex: "add_resource|add_method|add_routes|HttpRoute"
+    update: ["docs/API_ENDPOINTS.md"]
+    run: "python scripts/generate-api-spec.py"
+    note: "only when routes change"
+
+  - id: added-lambda
+    when:
+      added: ["lambda/**/app.py", "lambda/**/handler.py"]
+    update: ["docs/ARCHITECTURE.md", "docs/RESOURCES.md"]
+    note: "describe the new function and where it is wired"
+
+  - id: added-stack
+    when:
+      added: ["stacks/*_stack.py"]
+    update: ["docs/ARCHITECTURE.md", "docs/DEPLOYMENT.md"]
+    note: "stack list and deploy order"
+
+  - id: domains
+    when:
+      paths: ["stacks/cloudfront_stack.py"]
+      diff_regex: 'example\.com|cloudfront\.net|DOMAIN_NAME'
+    update: ["README.md", "docs/DEPLOYMENT.md"]
+
+  - id: credentials
+    when:
+      paths: [".env.example", "scripts/setup-secrets.sh"]
+    update: ["docs/DEPLOYMENT.md"]
+    note: "new or renamed secret: document where it lives and who sets it"
+
+  - id: added-skill
+    when:
+      added: [".claude/skills/*/SKILL.md"]
+    update: ["AGENTS.md"]
+    note: "list the new skill"
+
+  - id: lambda-runtime
+    when:
+      paths: ["src/constructs/base_lambda.py", "build-*layer.sh"]
+      diff_regex: 'Runtime\.PYTHON|python3\.\d+'
+    update: ["README.md", "docs/DEPLOYMENT.md"]
+    note: "the runtime Python version is quoted in these docs"

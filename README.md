@@ -58,8 +58,8 @@ python3 skills/agent-ab-eval/run_eval.py --prompts prompts.yaml --a DIR_A --b DI
 ```
 
 `docs-check` needs a `.docs-map.yaml` in the target repo. Start from
-`templates/python-service.docs-map.yaml`, or see `examples/aws-cdk-service.docs-map.yaml` for a
-real one. Each `SKILL.md` documents its full procedure.
+`templates/python-service.docs-map.yaml`, or `examples/aws-cdk-service.docs-map.yaml` for a
+fuller one. Each `SKILL.md` documents its full procedure.
 
 ## Layout
 
@@ -67,7 +67,7 @@ real one. Each `SKILL.md` documents its full procedure.
 skills/<name>/SKILL.md   what the agent follows
 skills/<name>/*.py       the skill's script
 lib/agentdocs/           shared code (diff parsing, docs map, stale values, links, budgets)
-templates/  examples/    starter and real .docs-map.yaml files
+templates/  examples/    starter and fuller .docs-map.yaml files
 tests/                   python3 -m pytest -q
 install.sh               symlink the skills, fetch writing-for-agents
 ```
